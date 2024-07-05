@@ -1,15 +1,15 @@
-# telegram-power-info
+# ESP8266-telegram-power-info
 This project submits messages into a Telegram chat when power goes out or is back on:
 
 ![chat](tg.jpg)
 
 ## Description and infrastructure requirements
-The project is based on esp32 board, please use VSCode with PlatformIO to upload the software.
+The project is based on ESP8266 board.
 WiFi connectivity is required in a moment of status changes to be able to send the messages,
 so some kind of UPS is required for your WiFi router. 
-Esp32 also requires backup power to send the message, there are two ways to achieve this:
+ESP8266 also requires backup power to send the message, there are two ways to achieve this:
 
-### Approach 1. Using LiIon battery for ESP32
+### Approach 1. Using LiIon battery for ESP8266
 This could be done using a regular LiIon 3.7v battery and charging board for example TC4056, please see this
 [video](https://www.youtube.com/watch?v=Lk__xTxLlY0) for details. 
 To reduce supply power to 3.3V a voltage regulator like MCP1700-3302E could be used, see this [video](https://www.youtube.com/watch?v=Z-36HflHotU)
@@ -38,13 +38,8 @@ whole period of power outage.
 The voltage divider circuit (two resistors, 2*R1 = R2 ) is used to reduce power probe voltage to 3.3v, please do not apply 5v to an input pin directly.
 
 ### Telegram settings
-In Telegram, you need to determine chat id using @myidbot and create a bot that will submit the messages using @BotFather.
+In Telegram, you need to create a bot that will submit the messages using @BotFather.
 It is also required to add the bot to the chat.
-
-### Viber implementation
-Viber API gives an ability to implement something similar, but the technical implementation is much 
-more demanding (it requires a server with callback URL and a kind of a database to track subscribed users)
-so a simple Viber/Telegram switch will not be implemented here.
 
 ### Why?
 Your community affected by outages will enjoy it:
