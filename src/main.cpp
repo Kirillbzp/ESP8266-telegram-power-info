@@ -1,152 +1,83 @@
-#include <Arduino.h>
-#include <WiFi.h>
-#include <WiFiClient.h>
-#include <esp_int_wdt.h>
-#include <esp_task_wdt.h>
-#include <EEPROM.h>
-#include <SimpleTimer.h>
+//#include <Arduino.h>
+//#include <ESP8266WiFi.h>
+//#include <WiFiClientSecure.h>
+//#include <EEPROM.h>
+//#include <UniversalTelegramBot.h>  
+//#include <ArduinoJson.h>
+//#include <FS.h>
 
-// eeprom settings, no need to change this if no eeprom errors
-#define NO_POWER_FLAG 7 
-#define WITH_POWER_FLAG 16  
-#define EEPROM_ADDR 8 
+#include "Constants.h"
+#include "WifiManager.h"
+#include "FileUtils.h"
+#include "EepromUtils.h"
+#include "MessageHandler.h"
+#include "ExternalPowerChecker.h"
 
-// Telegram
-// please use @myidbot "/getgroupid" command to determine group/channel id
-#define TG_CHAT_ID "YOUR OWN VALUE"
-#include <UniversalTelegramBot.h>  
-#include <ArduinoJson.h>
-#include <WiFiClientSecure.h>
-// please use @BothFather to create a bot, you need to add the bot to the group/channel
-#define BOTtoken "YOUR OWN VALUE"
-WiFiClientSecure client;
-UniversalTelegramBot bot(BOTtoken, client);
-// Telegram end
+// Set settings in Constants.h
 
-// Wifi connection settings
-#define WIFI_SSID "YOUR OWN VALUE"
-#define WIFI_PASSWORD "YOUR OWN VALUE"
+unsigned long bot_lasttime;                                  // last time scan pin
 
-// Text messages
-#define MSG_POWER_ON "Power is on💡"
-#define MSG_POWER_OFF "Power is out⚡"
-
-// Power probe pin on the board, up to 3.3v, please do not use 5v directly
-#define EXTERNAL_POWER_PROBE_PIN 4
-
-SimpleTimer timer;
-
-boolean isEepromError = false;
-
-boolean isEepromValid(int eeprom) {  
-  return eeprom == WITH_POWER_FLAG || eeprom == NO_POWER_FLAG;
-}
-
-void readExternalPower() {
-  
-  if (WiFi.status() != WL_CONNECTED) {
-    return;
-  }
-
-  int eeprom = EEPROM.read(EEPROM_ADDR);
-  if (!isEepromValid(eeprom)) {    
-    //  eeprom write count is limited theoreticaly leading to an error here, 
-    //  you can try to change address or use another esp32 board
-    Serial.println("EEPROM error!");
-    isEepromError = true; 
-    return;
-  } else {
-    isEepromError = false;
-  }
-
-  boolean isPowerNow = digitalRead(EXTERNAL_POWER_PROBE_PIN) == HIGH;
-  boolean isPowerBefore = eeprom == WITH_POWER_FLAG;
-
-  Serial.print("status: ");
-  Serial.println(isPowerNow ? "on" : "off");
-
-  if (isPowerBefore != isPowerNow) {
-    Serial.print("status change detected, trying to send the message...");
-    if (isPowerNow) {
-      if (!bot.sendMessage(TG_CHAT_ID, MSG_POWER_ON, "")) {
-        return;
-      }
-      EEPROM.write(EEPROM_ADDR, WITH_POWER_FLAG);
-      EEPROM.commit();   
-    } else {
-      if (!bot.sendMessage(TG_CHAT_ID, MSG_POWER_OFF, "")) {
-        return;
-      }
-      EEPROM.write(EEPROM_ADDR, NO_POWER_FLAG);
-      EEPROM.commit();    
-    }
-  }
-}
+void readExternalPower();
+String getDuration(time_t now, time_t time);
 
 void setup() {
-  Serial.begin(9600);
+  // General
+  Serial.begin(115200);
+  Serial.println();
 
   pinMode(EXTERNAL_POWER_PROBE_PIN, INPUT);
-
-  Serial.println();
-  Serial.println("Init watchdog:");
-  esp_task_wdt_init(60, true);
-  esp_task_wdt_add(NULL);
-
-  Serial.println("Init EEPROM:");
-  if (!EEPROM.begin(16)) {
-    while(true) {
-      Serial.println("EEPROM fail");
-      sleep(1);
-    }
-  }
-  int eeprom = EEPROM.read(EEPROM_ADDR);
-  Serial.println(eeprom);
-  if (!isEepromValid(eeprom)) {
-    // first start ever
-    EEPROM.write(EEPROM_ADDR, WITH_POWER_FLAG);
-    EEPROM.commit();  
-    Serial.println("EEPROM initialized");
-    eeprom = EEPROM.read(EEPROM_ADDR);
-    Serial.println(eeprom);    
-  } else {
-    // next restarts
-    Serial.println("EEPROM old value is valid");
-  }
-
-  // attempt to connect to Wifi network:
-  Serial.print("Connecting to Wifi SSID ");
-  Serial.print(WIFI_SSID);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  client.setCACert(TELEGRAM_CERTIFICATE_ROOT); // Add root certificate for api.telegram.org
-  while (WiFi.status() != WL_CONNECTED) {
-    Serial.print(".");
-    delay(500);
-  }
-  Serial.print("\nWiFi connected. IP address: ");
-  Serial.println(WiFi.localIP());
-
-  Serial.print("Retrieving time: ");
   configTime(0, 0, "pool.ntp.org"); // get UTC time via NTP
+  setupTelegram();
+
+  // EEPROM (1)
+  initializeEEPROM();
+
+  //File system
+  initializeFileSystem();
+
+  // Read Telegram data
+  if (!readTelegramDataFromFile())
+  {
+    Serial.println("Can not create Telegram data file");
+    return;
+  }
+
+  // Wifi:
+  initializeWiFi();
+
+  // RTC initialization for correct time
+  Serial.print("Retrieving time: ");
   time_t now = time(nullptr);
+  Serial.println(now);
   while (now < 24 * 3600) {
     Serial.print(".");
     delay(100);
     now = time(nullptr);
   }
+  Serial.println();
+  Serial.print("Time: ");
   Serial.println(now);
 
-  // the default value is too small leading to duplicated messages because "ok" from TG server is discarded
-  bot.waitForResponse = 25000;
+  // EEPROM (2)
+  initializeEEPROMData();
 
-  timer.setInterval(5000, readExternalPower);
+  // Telegram bot
+  const String commands = F("["
+                            "{\"command\":\"showstatus\",  \"description\":\"Покаже поточний статус чи є світло\"},"
+                            "{\"command\":\"start\", \"description\":\"Почати\"}"
+                            "]");
+  bot.setMyCommands(commands);
+  //bot.waitForResponse = 25000;
 }
 
 void loop() {
-  if (WiFi.status() == WL_CONNECTED && !isEepromError) {
-    // watchdog: if esp_task_wdt_reset() is not called for too long,
-    // the board is restarted in an attempt to fix itself
-    esp_task_wdt_reset();
+  // if (WiFi.status() == WL_CONNECTED && !isEepromError) {
+  //   ESP.wdtFeed(); // Watchdog reset for ESP8266
+  // }
+  if (millis() - bot_lasttime > BOT_MTBS)
+  {
+    updateNewMessages();
+    readExternalPower();
+    bot_lasttime = millis();
   }
-  timer.run();
 }
