@@ -33,39 +33,6 @@ bool createTelegramDataFile()
     return false;
   }
 
-  File subscribedUsersFile = SPIFFS.open(SUBSCRIBED_USERS_FILENAME, "r");
-  if (subscribedUsersFile)
-  {
-    String file_content = subscribedUsersFile.readString();
-    #ifdef YESVITLO_DEBUG
-      Serial.println("Content from USERS file: ");
-      Serial.println(file_content);
-    #endif
-    subscribedUsersFile.close();
-    DynamicJsonDocument usersDoc(MAX_MESSAGE_LENGTH);
-    DeserializationError error = deserializeJson(usersDoc, file_content);
-    if (error)
-    {
-      Serial.println("Failed to parse subscribed users file");
-    }
-    else
-    {
-      JsonObject users = usersDoc.as<JsonObject>();
-      for (JsonObject::iterator it = users.begin(); it != users.end(); ++it)
-      {
-        const char *chat_id = it->key().c_str();
-        const char *user_name = it->value();
-        telegramData.users.push_back({chat_id, user_name});
-      }
-
-      if (saveTelegramDataToFile())
-      {
-        SPIFFS.remove(SUBSCRIBED_USERS_FILENAME);
-      }
-    }
-
-  }
-
   return true;
 }
 
@@ -152,7 +119,8 @@ void addSubscribedUser(String chat_id, String user_name) {
       #ifdef YESVITLO_DEBUG
         Serial.println("User is in the list");
       #endif
-      // Якщо користувач вже існує, оновити його ім'я
+      // If user is already in the list, update the name. 
+      // But if the name is Guest, do not update it
       if ( user.second != user_name && user_name != "Guest")
       {
         user.second = user_name;
@@ -162,12 +130,11 @@ void addSubscribedUser(String chat_id, String user_name) {
     }
   }
   
-  // Додаємо нового користувача
+  // Add new user
   telegramData.users.push_back({chat_id, user_name});
   saveTelegramDataToFile();
 }
 
-// Функція для видалення користувача за chat_id
 void removeSubscribedUser(String chat_id) {
   for (auto it = telegramData.users.begin(); it != telegramData.users.end(); ++it) {
     if (it->first == chat_id) {
@@ -189,7 +156,6 @@ void addThreadForGroup(String chat_id, String thread_id) {
   #endif
   for (auto& thread : telegramData.threads) {
     if (thread.first == chat_id) {
-      // Якщо тема для даної групи вже існує, оновити її
       if(thread.second != thread_id)
       {
         thread.second = thread_id;
@@ -199,12 +165,10 @@ void addThreadForGroup(String chat_id, String thread_id) {
     }
   }
   
-  // Додаємо нову тему для групи
   telegramData.threads.push_back({chat_id, thread_id});
   saveTelegramDataToFile();
 }
 
-// Функція для видалення теми за chat_id
 void removeThreadForGroup(String chat_id) {
   for (auto it = telegramData.threads.begin(); it != telegramData.threads.end(); ++it) {
     if (it->first == chat_id) {

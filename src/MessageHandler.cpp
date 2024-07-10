@@ -14,8 +14,15 @@ void setupTelegram()
 
 void updateNewMessages()
 {
+    #ifdef YESVITLO_DEBUG
+      Serial.print("last message: ");
+      Serial.println(bot.last_message_received);
+    #endif
     int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
-
+    #ifdef YESVITLO_DEBUG
+      Serial.print("new messages: ");
+      Serial.println(numNewMessages);
+    #endif
     while (numNewMessages)
     {
       #ifdef YESVITLO_DEBUG
