@@ -154,6 +154,9 @@ void showStartMessage(String chat_id)
   {
     welcome += "/showalldata : Показати всі збережені данні\n";
     welcome += "/clearallsubscribers : Видалити всіх підписників\n";
+    welcome += "/removesubscriber {chat_id} : Видалити окремого підписника\n";
+    welcome += "/replacesubscribers {Data_Content} : Замінити повністю данні в файлі "; welcome += TELEGRAM_DATA_FILENAME; welcome += "\n";
+    welcome += "/setthread {chat_id} {thread_id} : Встановити thread_id для групи\n";
   }
   sendMessage(chat_id, welcome, "Markdown");
 }

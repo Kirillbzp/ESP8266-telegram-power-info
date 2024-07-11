@@ -1,11 +1,3 @@
-//#include <Arduino.h>
-//#include <ESP8266WiFi.h>
-//#include <WiFiClientSecure.h>
-//#include <EEPROM.h>
-//#include <UniversalTelegramBot.h>  
-//#include <ArduinoJson.h>
-//#include <FS.h>
-
 #include "Constants.h"
 #include "WifiManager.h"
 #include "FileUtils.h"
@@ -15,7 +7,7 @@
 
 // Set settings in Constants.h
 
-unsigned long bot_lasttime;                                  // last time scan pin
+unsigned long bot_lasttime; // last time scan pin
 
 void readExternalPower();
 String getDuration(time_t now, time_t time);

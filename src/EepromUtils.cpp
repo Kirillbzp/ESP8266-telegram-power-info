@@ -32,7 +32,6 @@ void initializeEEPROMData() {
 }
 
 void initializeEEPROM() {
-   // EEPROM (1)
   Serial.println("Init EEPROM:");
   EEPROM.begin(sizeof(DataInMemory));
 }
