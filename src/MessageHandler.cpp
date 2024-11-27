@@ -10,16 +10,21 @@ UniversalTelegramBot bot(BOTtoken, secured_client);
 void setupTelegram()
 {
     secured_client.setTrustAnchors(&cert); // Add root certificate for api.telegram.org
+    bot.maxMessageLength = MAX_MESSAGE_LENGTH;
 }
 
 void updateNewMessages()
 {
     #ifdef YESVITLO_DEBUG
+      Serial.print("Free Heap before get updates: ");
+      Serial.println(ESP.getFreeHeap());
       Serial.print("last message: ");
       Serial.println(bot.last_message_received);
     #endif
     int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
     #ifdef YESVITLO_DEBUG
+      Serial.print("Free Heap after get updates: ");
+      Serial.println(ESP.getFreeHeap());
       Serial.print("new messages: ");
       Serial.println(numNewMessages);
     #endif
@@ -79,6 +84,10 @@ void handleNewMessages(int numNewMessages)
     {
       showAllData(chat_id);
     }
+    if (text.startsWith("/addsubscriber") && chat_id == telegramData.adminId)
+    {
+      addSubscriber(chat_id, text);
+    }
     if (text.startsWith("/removesubscriber") && chat_id == telegramData.adminId)
     {
       removeSubscriber(chat_id, text);
@@ -112,22 +121,44 @@ bool sendMessage(String chat_id, String message, String parse_mode)
   #ifdef YESVITLO_DEBUG
     serializeJson(payload, Serial);
   #endif
-  if(!bot.sendPostMessage(payload.as<JsonObject>()))
+  
+  int retryCount = 0;
+  const int maxRetries = 10; // Maximum number of retries
+
+  while (retryCount < maxRetries)
   {
-    #ifdef YESVITLO_DEBUG
-      Serial.print("Error sending messge to: ");
-      Serial.println(chat_id);
-    #endif
-    removeSubscribedUser(chat_id);
-    #ifdef YESVITLO_DEBUG
-      Serial.println("Removed from subscribers");
-    #endif
+    if (bot.sendPostMessage(payload.as<JsonObject>()))
+    {
+      return true; // Message sent successfully
+    }
+    else
+    {
+      retryCount++;
+      delay(1000); // Wait for 1 second before retrying
+    }
   }
-  return true;
+
+  #ifdef YESVITLO_DEBUG   
+    Serial.print("Error sending message to: ");
+    Serial.println(chat_id);
+    Serial.println("Removed from subscribers");
+  #endif
+  removeSubscribedUser(chat_id);
+  return false; // Message sending failed after retries
 }
 
 void sendMessageToAllSubscribedUsers(String message)
 {
+  bool apiAvailable = false;
+  while (!apiAvailable)
+  {
+    apiAvailable = bot.getMe();
+    if (!apiAvailable)
+    {
+      delay(1000);
+    }
+  }
+
   unsigned int users_processed = 0;
 
   for (auto& user : telegramData.users)
@@ -154,6 +185,7 @@ void showStartMessage(String chat_id)
   {
     welcome += "/showalldata : Показати всі збережені данні\n";
     welcome += "/clearallsubscribers : Видалити всіх підписників\n";
+    welcome += "/addsubscriber {chat_id} {user_name}: Додати підписника\n";
     welcome += "/removesubscriber {chat_id} : Видалити окремого підписника\n";
     welcome += "/replacesubscribers {Data_Content} : Замінити повністю данні в файлі "; welcome += TELEGRAM_DATA_FILENAME; welcome += "\n";
     welcome += "/setthread {chat_id} {thread_id} : Встановити thread_id для групи\n";
@@ -199,7 +231,16 @@ void clearAllSubscribers(String chat_id)
 
 void showAllData(String chat_id)
 {
+  #ifdef YESVITLO_DEBUG
+    Serial.print("Free Heap before we open file: ");
+    Serial.println(ESP.getFreeHeap());
+  #endif
+
   File telegramDataFile = SPIFFS.open(TELEGRAM_DATA_FILENAME, "r");
+  #ifdef YESVITLO_DEBUG
+    Serial.print("Free Heap after we open file: ");
+    Serial.println(ESP.getFreeHeap());
+  #endif
   // no file
   if (!telegramDataFile)
   {
@@ -207,19 +248,41 @@ void showAllData(String chat_id)
     return;
   }
   size_t size = telegramDataFile.size();
-  if (size > 2048)
+  if (size > MAX_MESSAGE_LENGTH)
   {
     bot.sendMessage(chat_id, "Data file is too large", "");
   }
   else
   {
+    #ifdef YESVITLO_DEBUG
+      Serial.print("Free Heap before we read file: ");
+      Serial.println(ESP.getFreeHeap());
+    #endif
+
     String file_content = telegramDataFile.readString();
     #ifdef YESVITLO_DEBUG
       Serial.println("Content: ");
       Serial.println(file_content);
+      Serial.print("Free Heap before we send message: ");
+      Serial.println(ESP.getFreeHeap());
     #endif
+    
     bot.sendMessage(chat_id, file_content, "");
+    #ifdef YESVITLO_DEBUG
+      Serial.print("Free Heap after we send message: ");
+      Serial.println(ESP.getFreeHeap());
+    #endif
   }
+}
+
+void addSubscriber(String chat_id, String text)
+{
+  String params = text.substring(String("/addsubscriber ").length());
+  int spaceIdx = params.indexOf(' ');
+  String chat_id = params.substring(0, spaceIdx);
+  String user_name = params.substring(spaceIdx + 1);
+  addSubscribedUser(chat_id, user_name);
+  bot.sendMessage(chat_id, "Subscriber added", "");
 }
 
 void removeSubscriber(String chat_id, String text)

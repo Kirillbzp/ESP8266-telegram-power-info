@@ -21,6 +21,7 @@ void showStartMessage(String chat_id);
 void showStatus(String chat_id);
 void showAllData(String chat_id);
 void clearAllSubscribers(String chat_id);
+void addSubscriber(String chat_id, String text);
 void removeSubscriber(String chat_id, String text);
 void replaceSubscribers(String chat_id, String text);
 void setThread(String chat_id, String text);
