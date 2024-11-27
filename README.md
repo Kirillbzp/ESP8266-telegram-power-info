@@ -48,7 +48,7 @@ A voltage divider circuit (two resistors, where 2*R1 = R2) is used to reduce the
 3. Connect VCC and REST using a button (reset button)
 4. Connect VCC and 3.3V output from the USB UART converter
 5. Connect GND to the GND output from the USB UART converter
-6. Connect TXD (GPIO0) to RXD output from the USB UART converter
+6. Connect TXD (GPIO1) to RXD output from the USB UART converter
 7. Connect RXD (GPIO3) to TXD output from the USB UART converter
 
 #### Firmware Upload Procedure:
