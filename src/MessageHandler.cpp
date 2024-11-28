@@ -279,9 +279,9 @@ void addSubscriber(String chat_id, String text)
 {
   String params = text.substring(String("/addsubscriber ").length());
   int spaceIdx = params.indexOf(' ');
-  String chat_id = params.substring(0, spaceIdx);
+  String user_id = params.substring(0, spaceIdx);
   String user_name = params.substring(spaceIdx + 1);
-  addSubscribedUser(chat_id, user_name);
+  addSubscribedUser(user_id, user_name);
   bot.sendMessage(chat_id, "Subscriber added", "");
 }
 
