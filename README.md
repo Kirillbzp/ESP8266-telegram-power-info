@@ -58,7 +58,10 @@ A voltage divider circuit (two resistors, where 2*R1 = R2) is used to reduce the
 3. Press and hold the Firmware button
 4. Release the Reset button
 5. Release the Firmware button
-6. Upload the firmware using VSCode
+6. Upload the firmware using VSCode:
+6.1. Open platformio.ini and check com port number
+6.2. Open PlatformIO from the left sidebar. Install PlatformIO if needed. Restart VSCode after installation
+6.3. Select "Upload" or "Upload and Monitor" to upload firmware.
 
 ![Diagram](ESP8266_firmware.png)
 
