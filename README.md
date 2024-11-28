@@ -79,6 +79,7 @@ Configure all settings in the `Constants.h` file. Here, you can set up WiFi cred
 
 - `/showalldata` - Displays all saved data
 - `/clearallsubscribers` - Deletes all subscribers
+- `/addsubscriber {chat_id} {user_name}` - Add a new subscriber;
 - `/removesubscriber {chat_id}` - Deletes an individual subscriber
 - `/replacesubscribers {Data_Content}` - Replaces the entire data file
 - `/setthread {chat_id} {thread_id}` - Sets the thread_id for the group if the group is divided into topics, allowing the bot to write to a specific topic (thread)
